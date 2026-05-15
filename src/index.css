@@ -1,0 +1,241 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+
+:root {
+  --cyan: #00FFFF;
+  --violet: #7B2FFF;
+  --green: #00FF88;
+  --bg: #000000;
+  --syne: 'Outfit', sans-serif;
+  --mono: 'Space Mono', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+
+html {
+  background: var(--bg);
+  color: #fff;
+  font-family: var(--syne);
+  overflow-x: hidden;
+}
+
+body {
+  background: #000;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Noise grain overlay */
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 128px 128px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: #000; }
+::-webkit-scrollbar-thumb { background: var(--cyan); border-radius: 2px; }
+
+/* Glass button */
+.btn-glass {
+  padding: 14px 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 255, 255, 0.4);
+  background: rgba(0, 255, 255, 0.08);
+  color: var(--cyan);
+  font-family: var(--syne);
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.btn-glass:hover {
+  background: rgba(0, 255, 255, 0.18);
+  border-color: var(--cyan);
+  box-shadow: 0 0 30px rgba(0, 255, 255, 0.3), inset 0 0 30px rgba(0, 255, 255, 0.05);
+  transform: translateY(-2px);
+}
+
+.btn-ghost {
+  padding: 14px 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: #fff;
+  font-family: var(--syne);
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-ghost:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-2px);
+}
+
+/* EKG heartbeat */
+.ekg-container {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 60px;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0.6;
+}
+.ekg-line {
+  stroke: var(--green);
+  stroke-width: 2;
+  fill: none;
+  filter: drop-shadow(0 0 6px var(--green));
+  stroke-dasharray: 600;
+  stroke-dashoffset: 600;
+  animation: ekgDraw 2.5s ease-in-out infinite;
+}
+@keyframes ekgDraw {
+  0% { stroke-dashoffset: 600; }
+  100% { stroke-dashoffset: 0; }
+}
+
+/* Neural connector lines between sections */
+.neural-connector {
+  width: 100%;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.neural-connector svg {
+  width: 100%;
+  height: 80px;
+}
+.neural-path {
+  stroke: var(--cyan);
+  stroke-width: 1.5;
+  fill: none;
+  filter: drop-shadow(0 0 8px var(--cyan));
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+}
+
+/* Mood backgrounds */
+.mood-calm {
+  background: radial-gradient(ellipse at center, rgba(0, 100, 200, 0.15) 0%, transparent 70%);
+}
+.mood-focus {
+  background: linear-gradient(0deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+.mood-stress {
+  animation: glitchBg 0.3s infinite;
+}
+@keyframes glitchBg {
+  0%, 100% { filter: none; }
+  25% { filter: hue-rotate(90deg) saturate(2); }
+  50% { filter: hue-rotate(-90deg) brightness(1.2); }
+  75% { filter: invert(0.05); }
+}
+.mood-create {
+  background: linear-gradient(135deg,
+    rgba(255, 0, 128, 0.1),
+    rgba(0, 255, 128, 0.1),
+    rgba(0, 128, 255, 0.1),
+    rgba(255, 200, 0, 0.1));
+  background-size: 400% 400%;
+  animation: auroraShift 8s ease infinite;
+}
+@keyframes auroraShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Marquee */
+.marquee-track {
+  display: flex;
+  gap: 20px;
+  animation: marqueeScroll 30s linear infinite;
+  width: max-content;
+}
+@keyframes marqueeScroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* Status badge pulse */
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 12px var(--green);
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+@keyframes pulseGlow {
+  0%, 100% { opacity: 1; box-shadow: 0 0 12px var(--green); }
+  50% { opacity: 0.5; box-shadow: 0 0 4px var(--green); }
+}
+
+/* Orb bloom */
+.orb-bloom {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: bloomExpand 1.5s ease-out forwards;
+}
+@keyframes bloomExpand {
+  0% { width: 6px; height: 6px; opacity: 1; box-shadow: 0 0 10px #fff; }
+  60% { width: 120px; height: 120px; opacity: 0.8; box-shadow: 0 0 80px var(--cyan), 0 0 160px var(--violet); }
+  100% { width: 200px; height: 200px; opacity: 0; box-shadow: 0 0 120px var(--cyan); }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .noise-overlay { display: none; }
+}
+
+/* Mood card tilt */
+.mood-card {
+  perspective: 800px;
+  cursor: pointer;
+}
+.mood-card-inner {
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+  transform-style: preserve-3d;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  backdrop-filter: blur(8px);
+}
+.mood-card:hover .mood-card-inner {
+  box-shadow: 0 0 40px rgba(0, 255, 255, 0.15);
+}
