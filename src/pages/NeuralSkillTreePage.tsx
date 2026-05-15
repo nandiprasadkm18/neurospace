@@ -36,7 +36,6 @@ function SkillNodeMesh({ node, isResonating, onClick }: { node: SkillNode & { x:
         position={[0, node.parentId ? 0.5 : 0.8, 0]}
         fontSize={0.2}
         color="#fff"
-        font="https://fonts.gstatic.com/s/spacemono/v13/i7dPIFZifjKcF5UAWdDRYEF8RQ.woff2"
       >
         {node.name.toUpperCase()}
       </Text>

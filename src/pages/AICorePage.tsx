@@ -19,34 +19,48 @@ export default function AICorePage() {
     }
   }, [messages]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim()) return;
     
-    addMessage(input, 'user');
     const userText = input;
+    addMessage(userText, 'user');
     setInput('');
     
-    // Simulate ARIA thinking
+    // Set state to thinking
     setState('thinking');
     
-    setTimeout(() => {
-      setState('speaking');
-      const response = generateResponse(userText);
-      addMessage(response, 'assistant');
-      
-      // Sentiment analysis (simple)
-      if (userText.toLowerCase().includes('stress') || userText.toLowerCase().includes('anxious')) setMood('stress');
-      else if (userText.toLowerCase().includes('calm') || userText.toLowerCase().includes('relax')) setMood('calm');
-      else if (userText.toLowerCase().includes('create') || userText.toLowerCase().includes('build')) setMood('create');
-      
-      setTimeout(() => setState('idle'), 2000);
-    }, 1500);
-  };
+    try {
+      // Prepare history for AI (excluding the greeting if you want)
+      const messageHistory = messages.map(m => ({ role: m.role, content: m.content }));
+      messageHistory.push({ role: 'user', content: userText });
 
-  const generateResponse = (text: string) => {
-    if (text.toLowerCase().includes('focus')) return "Your neural pathways are primed for depth. I suggest a 90-minute session for your 'Neural Shaders' task.";
-    if (text.toLowerCase().includes('goal')) return "The 'Marathon' goal is at 68%. You've shown remarkable consistency this week.";
-    return "The universe of your mind is vast and ever-expanding. How can I assist in its mapping today?";
+      const res = await fetch('http://localhost:5000/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: messageHistory }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setState('speaking');
+        addMessage(data.content, 'assistant');
+        
+        // Sentiment analysis (keep the logic for mood)
+        if (userText.toLowerCase().includes('stress') || userText.toLowerCase().includes('anxious')) setMood('stress');
+        else if (userText.toLowerCase().includes('calm') || userText.toLowerCase().includes('relax')) setMood('calm');
+        else if (userText.toLowerCase().includes('create') || userText.toLowerCase().includes('build')) setMood('create');
+        
+        setTimeout(() => setState('idle'), 2000);
+      } else {
+        throw new Error(data.message || 'Neural link failed.');
+      }
+    } catch (error) {
+      console.error('AI Link Error:', error);
+      setState('error');
+      addMessage("The neural link to the core is unstable. Check your connection.", 'assistant');
+      setTimeout(() => setState('idle'), 3000);
+    }
   };
 
   return (

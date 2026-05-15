@@ -1,13 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoodStore } from '../store/moodStore';
-
-const BOOT_LINES = [
-  'NEUROSCAPE OS v3.1.0',
-  'Calibrating neural interface...',
-  'Mapping consciousness nodes... COMPLETE',
-  'Welcome back, [USER].',
-];
+import { useAuthStore } from '../store/authStore';
 
 export default function BootSequence() {
   const [visibleLines, setVisibleLines] = useState<string[]>([]);
@@ -16,16 +10,24 @@ export default function BootSequence() {
   const [lineIndex, setLineIndex] = useState(0);
   const [currentText, setCurrentText] = useState('');
   const setIntroComplete = useMoodStore((s) => s.setIntroComplete);
+  const { user } = useAuthStore();
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const bootLines = useMemo(() => [
+    'NEUROSCAPE OS v3.1.0',
+    'Calibrating neural interface...',
+    'Mapping consciousness nodes... COMPLETE',
+    `Welcome back, ${user?.username ? user.username.toUpperCase() : 'ENTITY'}.`,
+  ], [user?.username]);
 
   // Typewriter effect
   useEffect(() => {
     if (phase !== 'typing') return;
-    if (lineIndex >= BOOT_LINES.length) {
+    if (lineIndex >= bootLines.length) {
       timerRef.current = setTimeout(() => setPhase('orb'), 1200);
       return;
     }
-    const line = BOOT_LINES[lineIndex];
+    const line = bootLines[lineIndex];
     if (charIndex < line.length) {
       timerRef.current = setTimeout(() => {
         setCurrentText((p) => p + line[charIndex]);
@@ -38,7 +40,7 @@ export default function BootSequence() {
       setLineIndex((l) => l + 1);
     }
     return () => clearTimeout(timerRef.current);
-  }, [phase, lineIndex, charIndex]);
+  }, [phase, lineIndex, charIndex, bootLines]);
 
   // Orb phase → done
   useEffect(() => {
@@ -92,7 +94,7 @@ export default function BootSequence() {
                 {line}
               </div>
             ))}
-            {lineIndex < BOOT_LINES.length && (
+            {lineIndex < bootLines.length && (
               <div>
                 <span style={{ color: '#00FF88', marginRight: 8 }}>{'>'}</span>
                 {currentText}

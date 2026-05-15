@@ -1,7 +1,8 @@
 import { useState, useEffect, Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, useLocation, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, Link, Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMoodStore, moodColors } from './store/moodStore';
+import { useAuthStore } from './store/authStore';
 import { playSound } from './utils/soundEffects';
 import BootSequence from './components/BootSequence';
 import HeroOverlay from './components/HeroOverlay';
@@ -17,10 +18,12 @@ const NeuralAnalytics = lazy(() => import('./pages/NeuralAnalytics'));
 const AICorePage = lazy(() => import('./pages/AICorePage'));
 const DreamWorkspacePage = lazy(() => import('./pages/DreamWorkspacePage'));
 const NeuralSkillTreePage = lazy(() => import('./pages/NeuralSkillTreePage'));
+const AuthPage = lazy(() => import('./pages/AuthPage'));
 
 /* ── App Navbar (shared across all routes) ── */
 function AppNavbar() {
   const mood = useMoodStore((s) => s.mood);
+  const { isAuthenticated, user, logout } = useAuthStore();
   const glowColor = moodColors[mood];
   const location = useLocation();
 
@@ -88,6 +91,38 @@ function AppNavbar() {
             </Link>
           );
         })}
+        {/* Auth Button */}
+        {isAuthenticated ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: '0.68rem', color: glowColor }}>
+              {user?.username.toUpperCase()}
+            </span>
+            <button
+              onClick={() => { playSound('click'); logout(); }}
+              style={{
+                background: 'transparent', border: `1px solid ${glowColor}`, borderRadius: 4,
+                color: glowColor, fontFamily: 'var(--mono)', fontSize: '0.68rem', padding: '4px 8px',
+                cursor: 'pointer', textTransform: 'uppercase'
+              }}
+            >
+              LOGOUT
+            </button>
+          </div>
+        ) : (
+          <Link
+            to="/auth"
+            onMouseEnter={() => playSound('hover')}
+            onClick={() => playSound('click')}
+            style={{
+              background: `rgba(0, 255, 255, 0.1)`, border: `1px solid ${glowColor}`, borderRadius: 4,
+              color: glowColor, fontFamily: 'var(--mono)', fontSize: '0.68rem', padding: '4px 12px',
+              textDecoration: 'none', letterSpacing: '0.1em', textTransform: 'uppercase',
+              boxShadow: `0 0 10px ${glowColor}33`, transition: 'all 0.3s'
+            }}
+          >
+            LOGIN
+          </Link>
+        )}
       </div>
     </motion.nav>
   );
@@ -114,6 +149,8 @@ function LandingPage() {
 /* ── Animated Routes ── */
 function AnimatedRoutes() {
   const location = useLocation();
+  const { isAuthenticated } = useAuthStore();
+  
   return (
     <AnimatePresence mode="wait">
       <motion.div
@@ -131,13 +168,14 @@ function AnimatedRoutes() {
           </div>
         }>
           <Routes location={location}>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/universe" element={<UniverseDashboard />} />
-            <Route path="/memories" element={<MemoryVault />} />
-            <Route path="/analytics" element={<NeuralAnalytics />} />
-            <Route path="/ai-core" element={<AICorePage />} />
-            <Route path="/workspace" element={<DreamWorkspacePage />} />
-            <Route path="/skills" element={<NeuralSkillTreePage />} />
+            <Route path="/" element={isAuthenticated ? <LandingPage /> : <Navigate to="/auth" replace />} />
+            <Route path="/auth" element={isAuthenticated ? <Navigate to="/universe" replace /> : <AuthPage />} />
+            <Route path="/universe" element={isAuthenticated ? <UniverseDashboard /> : <Navigate to="/auth" replace />} />
+            <Route path="/memories" element={isAuthenticated ? <MemoryVault /> : <Navigate to="/auth" replace />} />
+            <Route path="/analytics" element={isAuthenticated ? <NeuralAnalytics /> : <Navigate to="/auth" replace />} />
+            <Route path="/ai-core" element={isAuthenticated ? <AICorePage /> : <Navigate to="/auth" replace />} />
+            <Route path="/workspace" element={isAuthenticated ? <DreamWorkspacePage /> : <Navigate to="/auth" replace />} />
+            <Route path="/skills" element={isAuthenticated ? <NeuralSkillTreePage /> : <Navigate to="/auth" replace />} />
           </Routes>
         </Suspense>
       </motion.div>
@@ -148,14 +186,24 @@ function AnimatedRoutes() {
 /* ── App ── */
 function App() {
   const introComplete = useMoodStore((s) => s.introComplete);
+  const { isAuthenticated } = useAuthStore();
   const [showContent, setShowContent] = useState(false);
 
   useEffect(() => {
-    if (introComplete) {
-      const t = setTimeout(() => setShowContent(true), 400);
-      return () => clearTimeout(t);
+    if (!isAuthenticated) {
+      // Unauthenticated users immediately see the AuthPage
+      setShowContent(true);
+      useMoodStore.getState().setIntroComplete(false);
+    } else {
+      // Authenticated users wait for the BootSequence
+      if (introComplete) {
+        const t = setTimeout(() => setShowContent(true), 400);
+        return () => clearTimeout(t);
+      } else {
+        setShowContent(false);
+      }
     }
-  }, [introComplete]);
+  }, [isAuthenticated, introComplete]);
 
   // Konami Code
   useEffect(() => {
@@ -179,7 +227,7 @@ function App() {
     <BrowserRouter>
       <CustomCursor />
       <div className="noise-overlay" />
-      <BootSequence />
+      {isAuthenticated && !introComplete && <BootSequence />}
       {showContent && (
         <>
           <AppNavbar />

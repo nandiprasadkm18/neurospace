@@ -32,6 +32,10 @@ interface DataState {
   habitsComplete: number;
   habitsTotal: number;
   energy: string;
+  toggleTaskStatus: (goalId: string, taskId: string) => void;
+  addMemory: (memory: Omit<Memory, 'id' | 'date'>) => void;
+  logFocusSession: (hours: number) => void;
+  addWorkspaceTask: (title: string) => void;
 }
 
 const GOALS: Goal[] = [
@@ -119,4 +123,63 @@ export const useDataStore = create<DataState>()(() => ({
   habitsComplete: 5,
   habitsTotal: 7,
   energy: 'HIGH',
+  toggleTaskStatus: (goalId, taskId) => set((state) => {
+    const updatedGoals = state.goals.map(goal => {
+      if (goal.id === goalId) {
+        const updatedTasks = goal.tasks.map(task => 
+          task.id === taskId ? { ...task, done: !task.done } : task
+        );
+        const completedTasks = updatedTasks.filter(t => t.done).length;
+        const newCompletion = Math.round((completedTasks / updatedTasks.length) * 100);
+        return { ...goal, tasks: updatedTasks, completion: newCompletion };
+      }
+      return goal;
+    });
+    return { goals: updatedGoals };
+  }),
+  addMemory: (memory) => set((state) => ({
+    memories: [{
+      id: Math.random().toString(36).substr(2, 9),
+      date: new Date().toISOString().split('T')[0],
+      ...memory
+    }, ...state.memories]
+  })),
+  logFocusSession: (hours) => set((state) => {
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'short' });
+    const existingSession = state.focusSessions.find(s => s.day === today);
+    if (existingSession) {
+      return {
+        focusSessions: state.focusSessions.map(s => 
+          s.day === today ? { ...s, hours: s.hours + hours } : s
+        )
+      };
+    } else {
+      return {
+        focusSessions: [...state.focusSessions.slice(1), { day: today, hours }]
+      };
+    }
+  }),
+  addWorkspaceTask: (title) => set((state) => {
+    const workspaceGoalIndex = state.goals.findIndex(g => g.id === 'workspace');
+    const newTask = { id: Math.random().toString(36).substr(2, 9), title, done: false };
+    
+    if (workspaceGoalIndex === -1) {
+      const newGoal: Goal = {
+        id: 'workspace', title: 'Ad-hoc Tasks', category: 'personal', completion: 0, color: '#00FFFF',
+        tasks: [newTask]
+      };
+      return { goals: [...state.goals, newGoal] };
+    } else {
+      const updatedGoals = [...state.goals];
+      updatedGoals[workspaceGoalIndex] = {
+        ...updatedGoals[workspaceGoalIndex],
+        tasks: [...updatedGoals[workspaceGoalIndex].tasks, newTask]
+      };
+      // update completion
+      const completedTasks = updatedGoals[workspaceGoalIndex].tasks.filter(t => t.done).length;
+      updatedGoals[workspaceGoalIndex].completion = Math.round((completedTasks / updatedGoals[workspaceGoalIndex].tasks.length) * 100);
+      
+      return { goals: updatedGoals };
+    }
+  }),
 }));
