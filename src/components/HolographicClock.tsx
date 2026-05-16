@@ -45,15 +45,15 @@ export default function HolographicClock() {
       {/* Orbit Rings */}
       <mesh rotation={[Math.PI / 2, 0, 0]}>
         <ringGeometry args={[1.48, 1.5, 64]} />
-        <meshBasicMaterial color="rgba(255,255,255,0.1)" transparent opacity={0.1} side={THREE.DoubleSide} />
+        <meshBasicMaterial color="#ffffff" transparent opacity={0.1} side={THREE.DoubleSide} />
       </mesh>
       <mesh rotation={[Math.PI / 2, 0, 0]}>
         <ringGeometry args={[2.18, 2.2, 64]} />
-        <meshBasicMaterial color="rgba(255,255,255,0.1)" transparent opacity={0.1} side={THREE.DoubleSide} />
+        <meshBasicMaterial color="#ffffff" transparent opacity={0.1} side={THREE.DoubleSide} />
       </mesh>
       <mesh rotation={[Math.PI / 2, 0, 0]}>
         <ringGeometry args={[2.98, 3.0, 64]} />
-        <meshBasicMaterial color="rgba(255,255,255,0.1)" transparent opacity={0.1} side={THREE.DoubleSide} />
+        <meshBasicMaterial color="#ffffff" transparent opacity={0.1} side={THREE.DoubleSide} />
       </mesh>
     </group>
   );

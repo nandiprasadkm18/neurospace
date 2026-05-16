@@ -10,14 +10,16 @@ import NeuralConnector from './components/NeuralConnector';
 import FeaturesSection from './components/FeaturesSection';
 import EmotionWeather from './components/EmotionWeather';
 import CustomCursor from './components/CustomCursor';
+import GlobalTimer from './components/GlobalTimer';
 
 const HeroScene = lazy(() => import('./components/HeroScene'));
+const HomePage = lazy(() => import('./pages/HomePage'));
 const UniverseDashboard = lazy(() => import('./pages/UniverseDashboard'));
 const MemoryVault = lazy(() => import('./pages/MemoryVault'));
 const NeuralAnalytics = lazy(() => import('./pages/NeuralAnalytics'));
 const AICorePage = lazy(() => import('./pages/AICorePage'));
 const DreamWorkspacePage = lazy(() => import('./pages/DreamWorkspacePage'));
-const NeuralSkillTreePage = lazy(() => import('./pages/NeuralSkillTreePage'));
+const NeuralProfilePage = lazy(() => import('./pages/NeuralProfilePage'));
 const AuthPage = lazy(() => import('./pages/AuthPage'));
 
 /* ── App Navbar (shared across all routes) ── */
@@ -28,13 +30,12 @@ function AppNavbar() {
   const location = useLocation();
 
   const navLinks = [
-    { path: '/', label: 'Home' },
-    { path: '/universe', label: 'Universe' },
-    { path: '/memories', label: 'Vault' },
-    { path: '/analytics', label: 'Data' },
+    { path: '/home', label: 'HOME' },
+    { path: '/universe', label: 'UNIVERSE' },
+    { path: '/memories', label: 'VAULT' },
+    { path: '/analytics', label: 'DATA' },
     { path: '/ai-core', label: 'ARIA' },
-    { path: '/workspace', label: 'Dream' },
-    { path: '/skills', label: 'Skills' },
+    { path: '/workspace', label: 'DREAM' },
   ];
 
   return (
@@ -91,12 +92,17 @@ function AppNavbar() {
             </Link>
           );
         })}
-        {/* Auth Button */}
+        {/* Auth Button & NP Link */}
         {isAuthenticated ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: '0.68rem', color: glowColor }}>
-              {user?.username.toUpperCase()}
-            </span>
+            <Link 
+              to="/np"
+              onMouseEnter={() => playSound('hover')}
+              onClick={() => playSound('click')}
+              style={{ fontFamily: 'var(--mono)', fontSize: '0.68rem', color: location.pathname === '/np' ? glowColor : 'rgba(255,255,255,0.4)', textDecoration: 'none', transition: 'color 0.3s', textTransform: 'uppercase', borderBottom: location.pathname === '/np' ? `1px solid ${glowColor}` : '1px solid transparent', paddingBottom: 2 }}
+            >
+              {user?.username?.toUpperCase() || 'IDENTITY'}
+            </Link>
             <button
               onClick={() => { playSound('click'); logout(); }}
               style={{
@@ -169,13 +175,14 @@ function AnimatedRoutes() {
         }>
           <Routes location={location}>
             <Route path="/" element={isAuthenticated ? <LandingPage /> : <Navigate to="/auth" replace />} />
+            <Route path="/home" element={isAuthenticated ? <HomePage /> : <Navigate to="/auth" replace />} />
             <Route path="/auth" element={isAuthenticated ? <Navigate to="/universe" replace /> : <AuthPage />} />
             <Route path="/universe" element={isAuthenticated ? <UniverseDashboard /> : <Navigate to="/auth" replace />} />
             <Route path="/memories" element={isAuthenticated ? <MemoryVault /> : <Navigate to="/auth" replace />} />
             <Route path="/analytics" element={isAuthenticated ? <NeuralAnalytics /> : <Navigate to="/auth" replace />} />
             <Route path="/ai-core" element={isAuthenticated ? <AICorePage /> : <Navigate to="/auth" replace />} />
             <Route path="/workspace" element={isAuthenticated ? <DreamWorkspacePage /> : <Navigate to="/auth" replace />} />
-            <Route path="/skills" element={isAuthenticated ? <NeuralSkillTreePage /> : <Navigate to="/auth" replace />} />
+            <Route path="/np" element={isAuthenticated ? <NeuralProfilePage /> : <Navigate to="/auth" replace />} />
           </Routes>
         </Suspense>
       </motion.div>
@@ -230,6 +237,7 @@ function App() {
       {isAuthenticated && !introComplete && <BootSequence />}
       {showContent && (
         <>
+          <GlobalTimer />
           <AppNavbar />
           <AnimatedRoutes />
         </>

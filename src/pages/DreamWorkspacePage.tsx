@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Command } from 'cmdk';
-import { Play, Pause, RotateCcw, Volume2, Search, Plus, Save } from 'lucide-react';
+import { Play, Pause, RotateCcw, Volume2, Search, Plus, Save, Edit2, Check } from 'lucide-react';
 import DraggablePanel from '../components/DraggablePanel';
 import HolographicClock from '../components/HolographicClock';
 import { useWorkspaceStore } from '../store/workspaceStore';
@@ -11,12 +11,19 @@ import { engine } from '../utils/AudioEngine';
 
 export default function DreamWorkspacePage() {
   const [open, setOpen] = useState(false);
-  const [noteText, setNoteText] = useState('');
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [playingTracks, setPlayingTracks] = useState<Record<string, boolean>>({});
+  const [isEditingTime, setIsEditingTime] = useState(false);
+  const [customMinutes, setCustomMinutes] = useState('');
+  const [isNoteActive, setIsNoteActive] = useState(false);
   
-  const { timerState, setTimer, setTimerMode } = useWorkspaceStore();
-  const { goals, toggleTaskStatus, addMemory, logFocusSession, addWorkspaceTask } = useDataStore();
+  const { timerState, setTimer, setTimerMode, noteContent, setNoteContent } = useWorkspaceStore();
+  const { goals, vision, milestones, toggleTaskStatus, addMemory, logFocusSession, addWorkspaceTask, updateVision, addMilestone, cycleMilestoneStatus } = useDataStore();
+  
+  const [isEditingVision, setIsEditingVision] = useState(false);
+  const [tempVision, setTempVision] = useState(vision);
+  const [newMilestoneTitle, setNewMilestoneTitle] = useState('');
   
   // Show only ad-hoc workspace tasks (not global goals)
   const workspaceTasks = useMemo(() => {
@@ -46,24 +53,6 @@ export default function DreamWorkspacePage() {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  useEffect(() => {
-    let interval: number;
-    if (timerState.running && timerState.time > 0) {
-      interval = setInterval(() => {
-        setTimer({ time: timerState.time - 1 });
-      }, 1000);
-    } else if (timerState.time === 0 && timerState.running) {
-      setTimer({ running: false });
-      // Log session
-      let hours = 0.5; // default pomodoro
-      if (timerState.mode === 'deep') hours = 1.5;
-      if (timerState.mode === 'flow') hours = 2.0;
-      logFocusSession(hours);
-      alert(`Focus Session Complete! Logged ${hours} hours.`);
-    }
-    return () => clearInterval(interval);
-  }, [timerState.running, timerState.time]);
-
   // Initialize audio engine on interaction
   const [audioStarted, setAudioStarted] = useState(false);
   const handleAudioStart = async () => {
@@ -74,15 +63,16 @@ export default function DreamWorkspacePage() {
   };
 
   const handleCrystallize = () => {
-    if (!noteText.trim()) return;
+    if (!noteContent.trim()) return;
     addMemory({
-      title: 'Workspace Note',
-      description: noteText,
+      id: Math.random().toString(36).substr(2, 9),
+      title: noteContent.substring(0, 30) + '...',
+      description: noteContent,
       emotion: 'calm',
       tags: ['workspace', 'focus', 'note']
     });
-    setNoteText('');
-    alert('Thought crystallized into Neural Vault.');
+    setNoteContent('');
+    setIsNoteActive(false);
   };
 
   return (
@@ -110,9 +100,44 @@ export default function DreamWorkspacePage() {
         {/* Timer Panel */}
         <DraggablePanel id="timer" title="Focus Timer" initialX={60} initialY={100}>
           <div style={{ textAlign: 'center' }}>
-            <h1 style={{ fontFamily: 'var(--syne)', fontSize: '3.5rem', fontWeight: 800, color: '#00FFFF', marginBottom: 20 }}>
-              {formatTime(timerState.time)}
-            </h1>
+            {isEditingTime ? (
+              <input 
+                type="number"
+                autoFocus
+                value={customMinutes}
+                onChange={e => setCustomMinutes(e.target.value)}
+                onBlur={() => {
+                  setIsEditingTime(false);
+                  const mins = parseInt(customMinutes);
+                  if (!isNaN(mins) && mins > 0) {
+                    setTimerMode('custom', mins * 60);
+                  }
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    setIsEditingTime(false);
+                    const mins = parseInt(customMinutes);
+                    if (!isNaN(mins) && mins > 0) {
+                      setTimerMode('custom', mins * 60);
+                    }
+                  }
+                }}
+                style={{ fontFamily: 'var(--syne)', fontSize: '3.5rem', fontWeight: 800, color: '#00FFFF', background: 'transparent', border: 'none', outline: 'none', width: '100%', textAlign: 'center', marginBottom: 20 }}
+              />
+            ) : (
+              <h1 
+                onClick={() => {
+                  if (!timerState.running) {
+                    setIsEditingTime(true);
+                    setCustomMinutes(Math.floor(timerState.time / 60).toString());
+                  }
+                }}
+                style={{ fontFamily: 'var(--syne)', fontSize: '3.5rem', fontWeight: 800, color: '#00FFFF', marginBottom: 20, cursor: timerState.running ? 'default' : 'pointer' }}
+                title={!timerState.running ? "Click to set custom time" : ""}
+              >
+                {formatTime(timerState.time)}
+              </h1>
+            )}
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
               <button 
                 onClick={() => setTimer({ running: !timerState.running })}
@@ -122,17 +147,24 @@ export default function DreamWorkspacePage() {
                 {timerState.running ? 'PAUSE' : 'START'}
               </button>
               <button 
-                onClick={() => setTimerMode(timerState.mode)} // resets to current mode time
+                onClick={() => setTimerMode(timerState.mode)}
                 style={{ padding: 12, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', cursor: 'pointer' }}
               >
                 <RotateCcw size={16} />
               </button>
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 24, justifyContent: 'center' }}>
-              {(['pomodoro', 'deep', 'flow'] as const).map(m => (
+              {(['pomodoro', 'deep', 'flow', 'custom'] as const).map(m => (
                 <span 
                   key={m} 
-                  onClick={() => setTimerMode(m)}
+                  onClick={() => {
+                    if (m === 'custom') {
+                      setIsEditingTime(true);
+                      setCustomMinutes(Math.floor(timerState.time / 60).toString());
+                    } else {
+                      setTimerMode(m);
+                    }
+                  }}
                   style={{ fontSize: '0.6rem', fontFamily: 'var(--mono)', color: timerState.mode === m ? '#00FFFF' : 'rgba(255,255,255,0.3)', letterSpacing: '0.1em', cursor: 'pointer' }}
                 >
                   {m.toUpperCase()}
@@ -216,15 +248,27 @@ export default function DreamWorkspacePage() {
         {/* Ambient Sounds Panel */}
         <DraggablePanel id="sounds" title="Ambient Soundscape" initialX={60} initialY={450}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {['Deep Space', 'Rain', 'Forest', 'Café'].map(s => (
+            {['Deep Space', 'Rain', 'Forest'].map(s => {
+              const type = s === 'Deep Space' ? 'space' : s === 'Rain' ? 'rain' : 'forest';
+              const isPlaying = playingTracks[type] || false;
+              return (
               <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                 <span style={{ flex: 1, fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}>{s}</span>
+                <button
+                  onClick={() => {
+                    handleAudioStart();
+                    engine.toggleTrack(type, !isPlaying);
+                    setPlayingTracks(prev => ({ ...prev, [type]: !isPlaying }));
+                  }}
+                  style={{ background: 'none', border: 'none', color: isPlaying ? '#00FFFF' : 'rgba(255,255,255,0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                >
+                  {isPlaying ? <Pause size={14} /> : <Play size={14} />}
+                </button>
                 <input 
                   type="range" 
                   defaultValue={0}
                   onChange={(e) => {
                     const val = parseInt(e.target.value);
-                    const type = s === 'Deep Space' ? 'space' : s === 'Rain' ? 'rain' : s === 'Forest' ? 'forest' : 'cafe';
                     engine.setVolume(type, val);
                     handleAudioStart(); // ensure audio is running
                   }}
@@ -232,7 +276,7 @@ export default function DreamWorkspacePage() {
                 />
                 <Volume2 size={14} color="rgba(255,255,255,0.2)" />
               </div>
-            ))}
+            )})}
           </div>
         </DraggablePanel>
 
@@ -240,8 +284,8 @@ export default function DreamWorkspacePage() {
         <DraggablePanel id="notes" title="Notes Archive" initialX={800} initialY={100}>
           <div style={{ minHeight: 300, display: 'flex', flexDirection: 'column', gap: 16 }}>
             <textarea 
-              value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
+              value={noteContent}
+              onChange={(e) => setNoteContent(e.target.value)}
               placeholder="Stream of consciousness..."
               style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#fff', fontFamily: 'var(--syne)', fontSize: '0.95rem', lineHeight: 1.6, resize: 'none' }}
             />
@@ -249,6 +293,120 @@ export default function DreamWorkspacePage() {
               <span style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.2)', fontFamily: 'var(--mono)' }}>REAL TIME</span>
               <button onClick={handleCrystallize} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#00FFFF', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}>
                 <Save size={14} /> CRYSTALLIZE
+              </button>
+            </div>
+          </div>
+        </DraggablePanel>
+
+        {/* Vision Mapping Panel */}
+        <DraggablePanel id="vision" title="Vision Map" initialX={450} initialY={450}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {isEditingVision ? (
+              <>
+                <div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: '0.6rem', color: '#B28DFF', letterSpacing: '0.1em', marginBottom: 4 }}>5-YEAR HORIZON</div>
+                  <input 
+                    value={tempVision.fiveYearHorizon}
+                    onChange={e => setTempVision({ ...tempVision, fiveYearHorizon: e.target.value })}
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '8px', width: '100%', borderRadius: 8, fontFamily: 'var(--syne)', fontSize: '1rem', outline: 'none' }}
+                  />
+                  <textarea 
+                    value={tempVision.fiveYearDescription}
+                    onChange={e => setTempVision({ ...tempVision, fiveYearDescription: e.target.value })}
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)', padding: '8px', width: '100%', borderRadius: 8, fontFamily: 'var(--mono)', fontSize: '0.75rem', marginTop: 8, height: 60, resize: 'none', outline: 'none' }}
+                  />
+                </div>
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.05)' }} />
+                <div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: '0.6rem', color: '#00FFFF', letterSpacing: '0.1em', marginBottom: 4 }}>1-YEAR OBJECTIVE</div>
+                  <input 
+                    value={tempVision.oneYearObjective}
+                    onChange={e => setTempVision({ ...tempVision, oneYearObjective: e.target.value })}
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(0,255,255,0.3)', color: '#fff', padding: '8px', width: '100%', borderRadius: 8, fontFamily: 'var(--syne)', fontSize: '1rem', outline: 'none' }}
+                  />
+                </div>
+                <button 
+                  onClick={() => {
+                    updateVision(tempVision);
+                    setIsEditingVision(false);
+                  }}
+                  style={{ background: 'rgba(0,255,255,0.2)', border: '1px solid #00FFFF', borderRadius: 8, padding: '8px', color: '#00FFFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 'bold', fontSize: '0.8rem' }}
+                >
+                  <Check size={14} /> SAVE VISION
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ position: 'absolute', top: 12, right: 12 }}>
+                  <button onClick={() => setIsEditingVision(true)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer' }}>
+                    <Edit2 size={14} />
+                  </button>
+                </div>
+                <div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: '0.6rem', color: '#B28DFF', letterSpacing: '0.1em', marginBottom: 4 }}>5-YEAR HORIZON</div>
+                  <div style={{ fontFamily: 'var(--syne)', fontSize: '1.2rem', color: '#fff' }}>{vision.fiveYearHorizon}</div>
+                  <p style={{ fontFamily: 'var(--mono)', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginTop: 8, lineHeight: 1.5 }}>
+                    {vision.fiveYearDescription}
+                  </p>
+                </div>
+                <div style={{ height: 1, background: 'rgba(255,255,255,0.05)' }} />
+                <div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: '0.6rem', color: '#00FFFF', letterSpacing: '0.1em', marginBottom: 4 }}>1-YEAR OBJECTIVE</div>
+                  <div style={{ fontFamily: 'var(--syne)', fontSize: '1.1rem', color: '#fff' }}>{vision.oneYearObjective}</div>
+                </div>
+              </>
+            )}
+          </div>
+        </DraggablePanel>
+
+        {/* Milestones Panel */}
+        <DraggablePanel id="milestones" title="Milestones" initialX={800} initialY={450}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {milestones.map((m) => (
+              <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, opacity: m.status === 'locked' ? 0.4 : 1 }}>
+                <div 
+                  onClick={() => cycleMilestoneStatus(m.id)}
+                  style={{ 
+                    width: 12, height: 12, borderRadius: '50%', cursor: 'pointer',
+                    background: m.status === 'done' ? '#00FF88' : m.status === 'active' ? '#00FFFF' : 'transparent',
+                    border: `1px solid ${m.status === 'done' ? '#00FF88' : m.status === 'active' ? '#00FFFF' : 'rgba(255,255,255,0.2)'}`,
+                    boxShadow: m.status !== 'locked' ? `0 0 10px ${m.status === 'done' ? '#00FF88' : '#00FFFF'}` : 'none'
+                  }} 
+                />
+                <span style={{ 
+                  fontFamily: 'var(--mono)', fontSize: '0.8rem', 
+                  color: m.status === 'done' ? 'rgba(255,255,255,0.5)' : '#fff',
+                  textDecoration: m.status === 'done' ? 'line-through' : 'none'
+                }}>
+                  {m.title}
+                </span>
+                {m.status === 'active' && <span style={{ marginLeft: 'auto', fontSize: '0.6rem', color: '#00FFFF', fontFamily: 'var(--mono)' }}>IN PROGRESS</span>}
+              </div>
+            ))}
+            
+            <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input 
+                value={newMilestoneTitle}
+                onChange={e => setNewMilestoneTitle(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && newMilestoneTitle.trim()) {
+                    addMilestone(newMilestoneTitle.trim());
+                    setNewMilestoneTitle('');
+                  }
+                }}
+                placeholder="Add milestone..."
+                style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px dashed rgba(255,255,255,0.1)', color: '#fff', padding: '6px 12px', borderRadius: 8, fontFamily: 'var(--mono)', fontSize: '0.75rem', outline: 'none' }}
+              />
+              <button 
+                onClick={() => {
+                  if (newMilestoneTitle.trim()) {
+                    addMilestone(newMilestoneTitle.trim());
+                    setNewMilestoneTitle('');
+                  }
+                }}
+                style={{ background: 'none', border: 'none', color: '#00FFFF', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+              >
+                <Plus size={16} />
               </button>
             </div>
           </div>

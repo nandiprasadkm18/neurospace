@@ -8,26 +8,38 @@ function ProductivityPulse() {
   const ref = useRef<SVGPathElement>(null);
   const containerRef = useRef(null);
   const inView = useInView(containerRef, { once: true });
-  const data = [42, 58, 35, 72, 65, 80, 47, 91, 68, 55, 78, 85, 60, 95, 70, 62, 88, 75, 50, 82, 90, 73, 66, 84];
+  const { focusSessions } = useDataStore();
+  const data = useMemo(() => {
+    if (focusSessions.length === 0) return [0, 0, 0, 0, 0, 0, 0]; 
+    return focusSessions.map(s => Math.min((s.hours / 2) * 100, 100));
+  }, [focusSessions]);
   const w = 800, h = 200, pad = 20;
 
   const pathD = useMemo(() => {
+    if (data.length < 2) {
+      const y = h - pad - ((data[0] || 0 - 30) / 70) * (h - pad * 2);
+      return `M${pad},${y} L${w - pad},${y}`;
+    }
     const pts = data.map((v, i) => {
       const x = pad + (i / (data.length - 1)) * (w - pad * 2);
       const y = h - pad - ((v - 30) / 70) * (h - pad * 2);
       return `${x},${y}`;
     });
     return `M${pts.join(' L')}`;
-  }, []);
+  }, [data]);
 
   const areaD = useMemo(() => {
+    if (data.length < 2) {
+      const y = h - pad - ((data[0] || 0 - 30) / 70) * (h - pad * 2);
+      return `M${pad},${h - pad} L${pad},${y} L${w - pad},${y} L${w - pad},${h - pad} Z`;
+    }
     const pts = data.map((v, i) => {
       const x = pad + (i / (data.length - 1)) * (w - pad * 2);
       const y = h - pad - ((v - 30) / 70) * (h - pad * 2);
       return `${x},${y}`;
     });
     return `M${pad},${h - pad} L${pts.join(' L')} L${w - pad},${h - pad} Z`;
-  }, []);
+  }, [data]);
 
   useEffect(() => {
     if (inView && ref.current) {
@@ -52,7 +64,7 @@ function ProductivityPulse() {
         {inView && <path d={areaD} fill="url(#pulseGrad)" opacity={0.6} />}
         <path ref={ref} d={pathD} fill="none" stroke="#00FFFF" strokeWidth={2.5} strokeLinecap="round" />
         {inView && data.map((v, i) => {
-          const x = pad + (i / (data.length - 1)) * (w - pad * 2);
+          const x = data.length > 1 ? pad + (i / (data.length - 1)) * (w - pad * 2) : w / 2;
           const y = h - pad - ((v - 30) / 70) * (h - pad * 2);
           return <circle key={i} cx={x} cy={y} r={3} fill="#00FFFF" opacity={0.5}><title>{v}%</title></circle>;
         })}
@@ -101,18 +113,35 @@ function HabitMatrix() {
 
 /* ── Mood Distribution (Lava Blobs via CSS) ── */
 function MoodDistribution() {
-  const moods = [
-    { name: 'CALM', pct: 35, color: '#4488FF' },
-    { name: 'FOCUS', pct: 30, color: '#00FFFF' },
-    { name: 'STRESS', pct: 15, color: '#FF3344' },
-    { name: 'CREATE', pct: 20, color: '#FF66AA' },
-  ];
+  const { memories } = useDataStore();
+  
+  const moodStats = useMemo(() => {
+    if (memories.length === 0) return [
+      { name: 'CALM', pct: 25, color: '#4488FF' },
+      { name: 'FOCUS', pct: 25, color: '#00FFFF' },
+      { name: 'STRESS', pct: 25, color: '#FF3344' },
+      { name: 'CREATE', pct: 25, color: '#FF66AA' },
+    ];
+    
+    const counts = memories.reduce((acc, m) => {
+      acc[m.emotion] = (acc[m.emotion] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    const total = memories.length;
+    return [
+      { name: 'CALM', pct: Math.round(((counts.calm || 0) / total) * 100), color: '#4488FF' },
+      { name: 'FOCUS', pct: Math.round(((counts.happy || 0) / total) * 100), color: '#00FFFF' },
+      { name: 'STRESS', pct: Math.round(((counts.sad || 0) / total) * 100), color: '#FF3344' },
+      { name: 'CREATE', pct: Math.round(((counts.excited || 0) / total) * 100), color: '#FF66AA' },
+    ];
+  }, [memories]);
 
   return (
     <div style={{ padding: 24, borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', backdropFilter: 'blur(8px)', position: 'relative', minHeight: 260, overflow: 'hidden' }}>
       <div style={{ fontFamily: 'var(--mono)', fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.15em', marginBottom: 16 }}>MOOD DISTRIBUTION</div>
       <div style={{ position: 'relative', height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {moods.map((m, i) => {
+        {moodStats.map((m, i) => {
           const size = 40 + m.pct * 1.2;
           const offsets = [[-20, -15], [25, -10], [-15, 20], [30, 25]];
           return (
@@ -193,7 +222,7 @@ function GoalRings() {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true });
   const cx = 100, cy = 100;
-  const avg = Math.round(goals.reduce((a, g) => a + g.completion, 0) / goals.length);
+  const avg = goals.length > 0 ? Math.round(goals.reduce((a, g) => a + g.completion, 0) / goals.length) : 0;
 
   return (
     <div ref={ref} style={{ padding: 24, borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', backdropFilter: 'blur(8px)' }}>
@@ -222,12 +251,29 @@ function GoalRings() {
         <text x={cx} y={cy - 4} textAnchor="middle" fill="#fff" fontSize="22" fontFamily="var(--syne)" fontWeight="800">{avg}%</text>
         <text x={cx} y={cy + 12} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize="7" fontFamily="var(--mono)">OVERALL</text>
       </svg>
-    </div>
-  );
+    </div>  );
 }
 
-/* ── AI Insight Card ── */
 function AIInsight() {
+  const { focusSessions, memories } = useDataStore();
+  
+  const insight = useMemo(() => {
+    if (focusSessions.length < 3) return {
+      title: "ARIA is calibrating...",
+      desc: "Complete at least 3 focus sessions to unlock personalized behavioral insights.",
+      btn: "Start Session"
+    };
+    
+    const totalHours = focusSessions.reduce((a, s) => a + s.hours, 0);
+    const avgHours = (totalHours / focusSessions.length).toFixed(1);
+    
+    return {
+      title: `Average session: ${avgHours} hrs`,
+      desc: `Based on your recent ${focusSessions.length} sessions, you are building a strong momentum in deep work.`,
+      btn: "View Details"
+    };
+  }, [focusSessions]);
+
   return (
     <div style={{
       padding: 24, borderRadius: 16,
@@ -244,18 +290,16 @@ function AIInsight() {
         animation: 'holoShimmer 4s ease infinite',
       }} />
       <style>{`@keyframes holoShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
-
+ 
       <div style={{ position: 'relative', zIndex: 1 }}>
         <div style={{ fontFamily: 'var(--mono)', fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.15em', marginBottom: 16 }}>AI INSIGHT</div>
         <p style={{ fontFamily: 'var(--syne)', fontSize: '1.1rem', fontWeight: 700, lineHeight: 1.5, marginBottom: 12 }}>
-          Your peak focus window is{' '}
-          <span style={{ color: '#00FFFF' }}>9–11 AM</span>.
-          You complete 3× more tasks before noon.
+          {insight.title}
         </p>
         <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.35)', lineHeight: 1.6, marginBottom: 20 }}>
-          Based on 47 focus sessions this month. Consider blocking mornings for deep work and moving meetings to afternoons.
+          {insight.desc}
         </p>
-        <button className="btn-ghost" style={{ padding: '8px 20px', fontSize: '0.7rem' }}>View Full Report →</button>
+        <button className="btn-ghost" style={{ padding: '8px 20px', fontSize: '0.7rem' }}>{insight.btn} →</button>
       </div>
     </div>
   );
@@ -263,16 +307,16 @@ function AIInsight() {
 
 /* ── Live Neural Feed ── */
 function NeuralFeed() {
-  const events = [
-    { time: '09:14', text: 'Focus session started · Duration: 47min', icon: '●' },
-    { time: '10:01', text: "Habit 'Meditate' completed ✓", icon: '●' },
-    { time: '11:33', text: "Memory added: 'Team dinner'", icon: '●' },
-    { time: '12:15', text: 'Mood shifted: CALM → FOCUS', icon: '◆' },
-    { time: '13:42', text: 'Goal milestone: Emergency Fund 81%', icon: '▲' },
-    { time: '14:08', text: 'Neural sync completed · 847 nodes', icon: '●' },
-    { time: '15:30', text: 'Creative burst detected · 12 ideas logged', icon: '★' },
-    { time: '16:45', text: "Habit 'Read 30min' completed ✓", icon: '●' },
-  ];
+  const { memories, goals } = useDataStore();
+  const events = useMemo(() => {
+    const evts = [];
+    memories.slice(0, 4).forEach(m => evts.push({ time: m.date, text: `Memory added: '${m.title}'`, icon: '●' }));
+    const completedGoals = goals.filter(g => g.completion === 100);
+    completedGoals.slice(0, 2).forEach(g => evts.push({ time: 'Recent', text: `Goal Achieved: ${g.title}`, icon: '▲' }));
+    return evts.length > 0 ? evts : [
+      { time: '09:14', text: 'System initialized · Core stable', icon: '●' }
+    ];
+  }, [memories, goals]);
 
   return (
     <div style={{

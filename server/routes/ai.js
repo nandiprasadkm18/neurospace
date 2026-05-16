@@ -10,10 +10,22 @@ const groq = new Groq({
 });
 
 router.post('/chat', async (req, res) => {
-  const { messages } = req.body;
+  const { messages, systemContext } = req.body;
 
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ message: 'Invalid messages format' });
+  }
+
+  let baseSystemPrompt = 'You are ARIA, the advanced AI core of the NeuroScape ecosystem. You help users map their consciousness, manage goals, and navigate their mental universe. Keep responses concise, futuristic, and slightly philosophical.';
+  
+  if (systemContext) {
+    baseSystemPrompt += `\n\n[SYSTEM CONTEXT]\nThe user has a focus score of ${systemContext.focusScore}. They have ${systemContext.activeGoalsCount} active goals. They have recently completed ${systemContext.recentMemoriesCount} memories in their Vault.`;
+    
+    if (systemContext.goals) {
+      baseSystemPrompt += `\n\n[ACTIVE GOALS & TASKS]:\n${systemContext.goals.map(g => `- ${g.title} (${g.category}): ${g.tasks.map(t => (t.done ? '[Done] ' : '[Todo] ') + t.title).join(', ')}`).join('\n')}`;
+    }
+    
+    baseSystemPrompt += `\n\nIncorporate this knowledge into your coaching and recommendations to feel highly context-aware. If the user asks about their tasks, list the ones marked as [Todo]. If they ask how to complete a task, provide strategic advice based on the goal category.`;
   }
 
   try {
@@ -21,7 +33,7 @@ router.post('/chat', async (req, res) => {
       messages: [
         {
           role: 'system',
-          content: 'You are ARIA, the advanced AI core of the NeuroScape ecosystem. You help users map their consciousness, manage goals, and navigate their mental universe. Keep responses concise, futuristic, and slightly philosophical.',
+          content: baseSystemPrompt,
         },
         ...messages.map((m) => ({
           role: m.role,

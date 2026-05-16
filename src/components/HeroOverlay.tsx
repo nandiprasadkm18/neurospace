@@ -1,8 +1,23 @@
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { playSound } from '../utils/soundEffects';
+import { useMoodStore } from '../store/moodStore';
 
 const words = ['YOUR', 'MIND.', 'MAPPED.', 'ALIVE.'];
 
 export default function HeroOverlay() {
+  const navigate = useNavigate();
+  const setIntroComplete = useMoodStore((s) => s.setIntroComplete);
+
+  const handleEnter = () => {
+    playSound('click');
+    navigate('/universe');
+  };
+
+  const handleWatchIntro = () => {
+    playSound('click');
+    setIntroComplete(false);
+  };
   return (
     <div
       style={{
@@ -101,8 +116,18 @@ export default function HeroOverlay() {
           justifyContent: 'center',
         }}
       >
-        <button className="btn-glass">Enter Neuroscape</button>
-        <button className="btn-ghost">
+        <button 
+          className="btn-glass" 
+          onClick={handleEnter}
+          onMouseEnter={() => playSound('hover')}
+        >
+          Enter Neuroscape
+        </button>
+        <button 
+          className="btn-ghost"
+          onMouseEnter={() => playSound('hover')}
+          onClick={handleWatchIntro}
+        >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
             <path d="M4 2l10 6-10 6V2z" />
           </svg>

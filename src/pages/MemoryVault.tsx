@@ -210,7 +210,7 @@ function TemporalSearch({ onSearch }: { onSearch: (q: string) => void }) {
         <input
           value={query}
           onChange={(e) => { setQuery(e.target.value); onSearch(e.target.value); }}
-          placeholder="SEARCH TIMELINE..."
+          placeholder="SEMANTIC SEARCH TIMELINE..."
           style={{
             background: 'none', border: 'none', outline: 'none',
             fontFamily: 'var(--mono)', fontSize: '0.75rem', color: '#fff',
@@ -223,6 +223,9 @@ function TemporalSearch({ onSearch }: { onSearch: (q: string) => void }) {
 }
 
 function MemoryDetail({ memory, onClose }: { memory: Memory; onClose: () => void }) {
+  const [aiSummary, setAiSummary] = useState('');
+  const [loadingSummary, setLoadingSummary] = useState(false);
+  
   const emotionColors: Record<string, string> = {
     happy: '#FFAA00', calm: '#4488FF', excited: '#00FF88', reflective: '#7B2FFF', sad: '#6688AA',
   };
@@ -258,10 +261,44 @@ function MemoryDetail({ memory, onClose }: { memory: Memory; onClose: () => void
           </span>
         </div>
         <p style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.7)', lineHeight: 1.8, marginBottom: 32 }}>{memory.description}</p>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 24 }}>
           {memory.tags.map((t) => (
             <span key={t} style={{ padding: '6px 14px', borderRadius: 99, border: '1px solid rgba(255,255,255,0.1)', fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', fontFamily: 'var(--mono)' }}>#{t}</span>
           ))}
+        </div>
+        
+        {/* AI Summary Section */}
+        <div style={{ padding: 16, background: 'rgba(123,47,255,0.05)', borderRadius: 12, border: '1px solid rgba(123,47,255,0.2)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: '0.7rem', color: '#B28DFF' }}>ARIA SEMANTIC ANALYSIS</span>
+            <button 
+              onClick={async () => {
+                if (aiSummary) return;
+                setLoadingSummary(true);
+                try {
+                  const token = localStorage.getItem('token');
+                  const res = await fetch('http://localhost:5000/api/ai/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ messages: [{ role: 'user', content: `Summarize this memory and extract key behavioral insights: "${memory.description}"` }] })
+                  });
+                  const data = await res.json();
+                  setAiSummary(data.content);
+                } catch (e) {
+                  setAiSummary("Error generating summary.");
+                }
+                setLoadingSummary(false);
+              }}
+              style={{ background: 'none', border: '1px solid #7B2FFF', color: '#7B2FFF', padding: '4px 12px', borderRadius: 4, cursor: 'pointer', fontSize: '0.6rem', fontFamily: 'var(--mono)' }}
+            >
+              {loadingSummary ? 'ANALYZING...' : 'GENERATE INSIGHT'}
+            </button>
+          </div>
+          {aiSummary && (
+            <p style={{ marginTop: 12, fontSize: '0.85rem', color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, fontStyle: 'italic' }}>
+              {aiSummary}
+            </p>
+          )}
         </div>
       </motion.div>
     </motion.div>

@@ -2,10 +2,13 @@ import { create } from 'zustand';
 
 interface WorkspaceStore {
   panels: Record<string, { x: number, y: number, visible: boolean }>;
-  timerState: { time: number, mode: 'pomodoro' | 'deep' | 'flow', running: boolean };
+  timerState: { time: number, mode: 'pomodoro' | 'deep' | 'flow' | 'custom', running: boolean, customDuration: number };
+  noteContent: string;
   updatePanel: (id: string, updates: Partial<{ x: number, y: number, visible: boolean }>) => void;
-  setTimer: (updates: Partial<{ time: number, running: boolean, mode: 'pomodoro' | 'deep' | 'flow' }>) => void;
-  setTimerMode: (mode: 'pomodoro' | 'deep' | 'flow') => void;
+  setTimer: (updates: Partial<{ time: number, running: boolean, mode: 'pomodoro' | 'deep' | 'flow' | 'custom' }>) => void;
+  setTimerMode: (mode: 'pomodoro' | 'deep' | 'flow' | 'custom', customTimeSeconds?: number) => void;
+  setNoteContent: (content: string) => void;
+  appendToNote: (text: string) => void;
 }
 
 export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
@@ -15,17 +18,42 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
     notes: { x: 800, y: 100, visible: true },
     sounds: { x: 50, y: 500, visible: true },
   },
-  timerState: { time: 1500, mode: 'pomodoro', running: false },
+  timerState: { time: 1500, mode: 'pomodoro', running: false, customDuration: 1500 },
+  noteContent: '',
   updatePanel: (id, updates) => set((s) => ({
     panels: { ...s.panels, [id]: { ...s.panels[id], ...updates } }
   })),
   setTimer: (updates) => set((s) => ({
     timerState: { ...s.timerState, ...updates }
   })),
-  setTimerMode: (mode) => set((s) => {
-    let time = 1500; // 25m
-    if (mode === 'deep') time = 5400; // 90m
-    if (mode === 'flow') time = 7200; // 120m
-    return { timerState: { ...s.timerState, mode, time, running: false } };
+  setTimerMode: (mode, customTimeSeconds) => set((s) => {
+    let time = 1500;
+    let customDuration = s.timerState.customDuration;
+    
+    if (mode === 'pomodoro') time = 1500;
+    if (mode === 'deep') time = 5400;
+    if (mode === 'flow') time = 7200;
+    if (mode === 'custom') {
+      if (customTimeSeconds !== undefined) {
+        time = customTimeSeconds;
+        customDuration = customTimeSeconds;
+      } else {
+        time = s.timerState.customDuration;
+      }
+    }
+    
+    return { 
+      timerState: { 
+        ...s.timerState, 
+        mode, 
+        time, 
+        running: false, 
+        customDuration 
+      } 
+    };
   }),
+  setNoteContent: (noteContent) => set({ noteContent }),
+  appendToNote: (text) => set((s) => ({ 
+    noteContent: s.noteContent + (s.noteContent ? '\n' : '') + text 
+  })),
 }));

@@ -5,6 +5,7 @@ import { EffectComposer, Bloom, GodRays, Vignette, ChromaticAberration } from '@
 import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
 import { gsap } from 'gsap';
+import { Plus, X, ChevronDown } from 'lucide-react';
 import { useMoodStore, moodColors } from '../store/moodStore';
 import { useDataStore, type Goal } from '../store/dataStore';
 
@@ -301,6 +302,9 @@ function HUDPanel({ color }: { color: string }) {
 }
 
 function GoalPanel({ goal, onClose }: { goal: Goal; onClose: () => void }) {
+  const { toggleTaskStatus, addTaskToGoal } = useDataStore();
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+
   return (
     <motion.div
       initial={{ x: 400, opacity: 0 }}
@@ -329,12 +333,40 @@ function GoalPanel({ goal, onClose }: { goal: Goal; onClose: () => void }) {
       <div style={{ fontFamily: 'var(--mono)', fontSize: '0.6rem', color: 'rgba(255,255,255,0.35)', letterSpacing: '0.15em', marginBottom: 10 }}>TASKS</div>
       {goal.tasks.map((t) => (
         <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-          <div style={{ width: 16, height: 16, borderRadius: 4, border: `1px solid ${t.done ? goal.color : 'rgba(255,255,255,0.15)'}`, background: t.done ? `${goal.color}22` : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', color: goal.color }}>
+          <div 
+            onClick={() => toggleTaskStatus(goal.id, t.id)}
+            style={{ width: 16, height: 16, borderRadius: 4, cursor: 'pointer', border: `1px solid ${t.done ? goal.color : 'rgba(255,255,255,0.15)'}`, background: t.done ? `${goal.color}22` : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', color: goal.color }}
+          >
             {t.done && '✓'}
           </div>
           <span style={{ fontSize: '0.8rem', color: t.done ? 'rgba(255,255,255,0.5)' : '#fff', textDecoration: t.done ? 'line-through' : 'none' }}>{t.title}</span>
         </div>
       ))}
+      <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+        <input 
+          value={newTaskTitle}
+          onChange={e => setNewTaskTitle(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && newTaskTitle.trim()) {
+              addTaskToGoal(goal.id, newTaskTitle.trim());
+              setNewTaskTitle('');
+            }
+          }}
+          placeholder="New task..."
+          style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: `1px dashed ${goal.color}55`, color: '#fff', padding: '6px 12px', borderRadius: 8, fontSize: '0.75rem', outline: 'none' }}
+        />
+        <button 
+          onClick={() => {
+            if (newTaskTitle.trim()) {
+              addTaskToGoal(goal.id, newTaskTitle.trim());
+              setNewTaskTitle('');
+            }
+          }}
+          style={{ background: 'none', border: 'none', color: goal.color, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+        >
+          <Plus size={16} />
+        </button>
+      </div>
     </motion.div>
   );
 }
@@ -362,23 +394,25 @@ function UniverseScene({ onSelectGoal, constellationMode }: { onSelectGoal: (g: 
       <AsteroidBelt />
       
       {goals.map((g, i) => {
-        const targetPos = constellationMode ? constellationPositions[i] : null;
+        // Wrap orbits if we exceed 5 to prevent errors
+        const oIdx = i % orbits.length;
+        const targetPos = constellationMode ? (constellationPositions[i] || constellationPositions[0]) : null;
         return (
           <group key={g.id}>
             {!constellationMode && (
               <mesh rotation={[Math.PI / 2, 0, 0]}>
-                <ringGeometry args={[orbits[i] - 0.05, orbits[i], 128]} />
+                <ringGeometry args={[orbits[oIdx] - 0.05, orbits[oIdx], 128]} />
                 <meshBasicMaterial color="white" transparent opacity={0.1} side={THREE.DoubleSide} />
               </mesh>
             )}
             <RealisticPlanet
               goal={g}
-              orbitRadius={orbits[i]}
-              speed={constellationMode ? 0 : speeds[i]}
+              orbitRadius={orbits[oIdx]}
+              speed={constellationMode ? 0 : speeds[oIdx]}
               onSelect={onSelectGoal}
               constellationPos={targetPos}
               isConstellation={constellationMode}
-              type={types[i]}
+              type={types[oIdx]}
             />
           </group>
         );
@@ -398,15 +432,23 @@ function UniverseScene({ onSelectGoal, constellationMode }: { onSelectGoal: (g: 
 
 /* ── Main Dashboard Page ── */
 export default function UniverseDashboard() {
-  const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
   const [constellationMode, setConstellationMode] = useState(false);
+  const [showAddGoal, setShowAddGoal] = useState(false);
+  const [newGoalTitle, setNewGoalTitle] = useState('');
+  const [newGoalCategory, setNewGoalCategory] = useState<Goal['category']>('career');
+  const [showDropdown, setShowDropdown] = useState(false);
+  
   const { mood } = useMoodStore();
+  const { addGoal, goals } = useDataStore();
   const color = moodColors[mood];
+
+  const selectedGoal = goals.find(g => g.id === selectedGoalId);
 
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', background: '#000', overflow: 'hidden' }}>
       <Canvas shadows camera={{ position: [0, 25, 50], fov: 45 }} dpr={[1, 1.5]} gl={{ antialias: true, shadowMapType: THREE.PCFShadowMap }}>
-        <UniverseScene onSelectGoal={setSelectedGoal} constellationMode={constellationMode} />
+        <UniverseScene onSelectGoal={(g) => setSelectedGoalId(g.id)} constellationMode={constellationMode} />
       </Canvas>
 
       {/* Side HUD */}
@@ -433,8 +475,102 @@ export default function UniverseDashboard() {
         {constellationMode ? 'REALISTIC VIEW' : 'CONSTELLATION MODE'}
       </button>
 
+      {/* Add Goal Button */}
+      <button
+        onClick={() => setShowAddGoal(true)}
+        style={{
+          position: 'absolute', top: 100, right: 30, zIndex: 10,
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '12px 24px', borderRadius: 99,
+          border: '1px solid rgba(0,255,255,0.3)',
+          background: 'rgba(0,0,0,0.6)', color: '#00FFFF', 
+          fontFamily: 'var(--mono)', fontSize: '0.75rem', fontWeight: 'bold',
+          cursor: 'pointer', backdropFilter: 'blur(12px)', transition: 'all 0.3s'
+        }}
+      >
+        <Plus size={16} /> CREATE PLANET
+      </button>
+
+      {/* Add Goal Modal */}
       <AnimatePresence>
-        {selectedGoal && <GoalPanel goal={selectedGoal} onClose={() => setSelectedGoal(null)} />}
+        {showAddGoal && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }} 
+              animate={{ scale: 1, opacity: 1 }} 
+              exit={{ scale: 0.95, opacity: 0 }}
+              style={{ width: 400, background: 'rgba(10,10,15,0.95)', border: '1px solid rgba(0,255,255,0.2)', borderRadius: 16, padding: 32, position: 'relative' }}
+            >
+              <button onClick={() => setShowAddGoal(false)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+              <h2 style={{ fontFamily: 'var(--syne)', fontSize: '1.5rem', color: '#fff', marginBottom: 24 }}>New Planet</h2>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <label style={{ display: 'block', fontFamily: 'var(--mono)', fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>GOAL TITLE</label>
+                  <input 
+                    autoFocus
+                    value={newGoalTitle}
+                    onChange={e => setNewGoalTitle(e.target.value)}
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px', borderRadius: 8, fontFamily: 'var(--syne)', outline: 'none' }}
+                    placeholder="e.g., Master Three.js"
+                  />
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <label style={{ display: 'block', fontFamily: 'var(--mono)', fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>CATEGORY</label>
+                  <div 
+                    onClick={() => setShowDropdown(!showDropdown)}
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px', borderRadius: 8, fontFamily: 'var(--syne)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
+                    <span style={{ textTransform: 'capitalize' }}>{newGoalCategory}</span>
+                    <ChevronDown size={16} color="rgba(255,255,255,0.5)" />
+                  </div>
+                  
+                  <AnimatePresence>
+                    {showDropdown && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 8, background: '#0f1115', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, overflow: 'hidden', zIndex: 50, boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
+                      >
+                        {(['career', 'health', 'creative', 'finance', 'personal'] as const).map(cat => (
+                          <div 
+                            key={cat}
+                            onClick={() => { setNewGoalCategory(cat); setShowDropdown(false); }}
+                            style={{ padding: '12px 16px', color: '#fff', fontFamily: 'var(--syne)', cursor: 'pointer', textTransform: 'capitalize', borderBottom: '1px solid rgba(255,255,255,0.05)', background: newGoalCategory === cat ? 'rgba(0,255,255,0.1)' : 'transparent' }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = newGoalCategory === cat ? 'rgba(0,255,255,0.1)' : 'transparent'}
+                          >
+                            {cat}
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+                
+                <button 
+                  onClick={() => {
+                    if (newGoalTitle.trim()) {
+                      addGoal(newGoalTitle.trim(), newGoalCategory);
+                      setNewGoalTitle('');
+                      setShowAddGoal(false);
+                    }
+                  }}
+                  style={{ marginTop: 8, background: 'rgba(0,255,255,0.15)', border: '1px solid #00FFFF', color: '#00FFFF', padding: '12px', borderRadius: 8, fontFamily: 'var(--mono)', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  INITIALIZE ORBIT
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {selectedGoal && <GoalPanel goal={selectedGoal} onClose={() => setSelectedGoalId(null)} />}
       </AnimatePresence>
     </div>
   );

@@ -4,12 +4,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, Send, Sparkles } from 'lucide-react';
 import { useAIStore } from '../store/aiStore';
 import { useMoodStore } from '../store/moodStore';
+import { useDataStore } from '../store/dataStore';
 import ARIAOrb from '../components/ARIAOrb';
 import AudioVisualizerRing from '../components/AudioVisualizerRing';
 
 export default function AICorePage() {
   const { state, setState, messages, addMessage } = useAIStore();
   const { setMood } = useMoodStore();
+  const { goals, focusScore, memories, vision, milestones } = useDataStore();
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -34,10 +36,19 @@ export default function AICorePage() {
       const messageHistory = messages.map(m => ({ role: m.role, content: m.content }));
       messageHistory.push({ role: 'user', content: userText });
 
+      const systemContext = {
+        focusScore,
+        activeGoalsCount: goals.filter(g => g.completion < 100).length,
+        recentMemoriesCount: memories.length,
+        vision,
+        milestones,
+        goals // Pass the full goals array which includes tasks
+      };
+
       const res = await fetch('http://localhost:5000/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: messageHistory }),
+        body: JSON.stringify({ messages: messageHistory, systemContext }),
       });
 
       const data = await res.json();
